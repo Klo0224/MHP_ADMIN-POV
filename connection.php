@@ -24,32 +24,38 @@ if (!isset($_SESSION['doctor_id'])) {
 // Get doctor's complete information
 $doctor_id = $_SESSION['doctor_id'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // Get doctor details
-$sql = "SELECT *, DATE_FORMAT(created_at, '%M %Y') as created_at FROM doctors WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $doctor_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$doctor = $result->fetch_assoc();
+function getDoctorDetails($doctor_id, $conn) {
+    $sql = "SELECT *, DATE_FORMAT(created_at, '%M %Y') as created_at FROM doctors WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $doctor_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_assoc();
+}
 
 // Get today's appointments count
-$today = date('Y-m-d');
-$sql = "SELECT COUNT(*) as today_count FROM appointments WHERE doctor_id = ? AND DATE(appointment_date) = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("is", $doctor_id, $today);
-$stmt->execute();
-$today_appointments = $stmt->get_result()->fetch_assoc()['today_count'];
+function getTodayAppointmentsCount($doctor_id, $conn) {
+    $today = date('Y-m-d');
+    $sql = "SELECT COUNT(*) as today_count FROM appointments WHERE doctor_id = ? AND DATE(appointment_date) = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("is", $doctor_id, $today);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_assoc()['today_count'];
+}
 
 // Get total patients count
-$sql = "SELECT COUNT(DISTINCT patient_id) as total_patients FROM appointments WHERE doctor_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $doctor_id);
-$stmt->execute();
-$total_patients = $stmt->get_result()->fetch_assoc()['total_patients'];
+function getTotalPatientsCount($doctor_id, $conn) {
+    $sql = "SELECT COUNT(DISTINCT patient_id) as total_patients FROM appointments WHERE doctor_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $doctor_id);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_assoc()['total_patients'];
+}
 
 // Get upcoming appointments
-$sql = "SELECT a.*, p.name as patient_name 
+function getUpcomingAppointments($doctor_id, $conn) {
+    $sql = "SELECT a.*, p.name as patient_name 
             FROM appointments a 
             JOIN patients p ON a.patient_id = p.id 
             WHERE a.doctor_id = ? 
@@ -59,80 +65,108 @@ $sql = "SELECT a.*, p.name as patient_name
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $doctor_id);
     $stmt->execute();
-    $upcoming_appointments = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
 
-// Prepare response
-$response = [
-    'doctor' => $doctor,
-    'today_appointments' => $today_appointments,
-    'total_patients' => $total_patients,
-    'upcoming_appointments' => $upcoming_appointments
-];
+// Handle GET requests
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // Fetch doctor details and statistics
+    $doctor = getDoctorDetails($doctor_id, $conn);
+    $today_appointments = getTodayAppointmentsCount($doctor_id, $conn);
+    $total_patients = getTotalPatientsCount($doctor_id, $conn);
+    $upcoming_appointments = getUpcomingAppointments($doctor_id, $conn);
 
-// Send JSON response
-header('Content-Type: application/json');
+    // Prepare response
+    $response = [
+        'doctor' => $doctor,
+        'today_appointments' => $today_appointments,
+        'total_patients' => $total_patients,
+        'upcoming_appointments' => $upcoming_appointments
+    ];
+
+    // Send JSON response
+    header('Content-Type: application/json');
     echo json_encode($response);
     exit();
 }
 
-// Handle GET request to fetch specific profile section
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Check if a specific section is requested
-    if (isset($_GET['section'])) {
-        $section = $_GET['section'];
-        
-        // Allowed sections to prevent SQL injection
-        $allowed_sections = ['qualifications', 'education'];
-        
-        if (in_array($section, $allowed_sections)) {
-            // Prepare statement to fetch specific section
-            $stmt = $conn->prepare("SELECT `{$section}` FROM doctors WHERE id = ?");
-            $stmt->bind_param("i", $doctor_id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $profile = $result->fetch_assoc();
+// Handle POST request for profile update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section']) && isset($_POST['content'])) {
+    $allowed_sections = ['qualifications', 'education'];
+    $section = filter_var($_POST['section'], FILTER_SANITIZE_STRING);
+    $content = htmlspecialchars($_POST['content'], ENT_QUOTES, 'UTF-8');
 
-            // Send JSON response
-            header('Content-Type: application/json');
-            echo json_encode($profile);
-            exit();
-        }
-    }
-}
-
-// Handle POST request to update profile information
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Read raw POST data
-    $input_data = json_decode(file_get_contents('php://input'), true);
-
-    // Allowed fields for update
-    $allowed_fields = ['qualifications', 'education'];
-
-    if (isset($input_data['section']) && isset($input_data['value'])) {
-        if (in_array($input_data['section'], $allowed_fields)) {
-            // Prepare update statement
-            $stmt = $conn->prepare("UPDATE doctors SET `{$input_data['section']}` = ? WHERE id = ?");
-            $stmt->bind_param("si", $input_data['value'], $doctor_id);
-
-            if ($stmt->execute()) {
-                echo json_encode([
-                    'success' => true, 
-                    'message' => ucfirst($input_data['section']) . ' updated successfully'
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => false, 
-                    'message' => 'Failed to update profile', 
-                    'error' => $stmt->error
-                ]);
-            }
-            $stmt->close();
+    if (in_array($section, $allowed_sections)) {
+        // Prepare update statement
+        $stmt = $conn->prepare("UPDATE doctors SET {$section} = ? WHERE id = ?");
+        $stmt->bind_param("si", $content, $doctor_id);
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true]);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Invalid section']);
+            echo json_encode(['success' => false, 'error' => $stmt->error]);
         }
     } else {
-        echo json_encode(['success' => false, 'message' => 'Missing parameters']);
+        echo json_encode(['success' => false, 'error' => 'Invalid section']);
     }
+    exit();
+}
+// Handle incoming POST request
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    if (!isset($data['date']) || !isset($data['slots']) || !is_array($data['slots'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid input']);
+        exit();
+    }
+
+    $date = $data['date'];
+    $slots = $data['slots'];
+
+    $conn->begin_transaction();
+
+    try {
+        // Delete existing schedule for the selected date
+        $deleteStmt = $conn->prepare("DELETE FROM doctor_schedule WHERE doctor_id = ? AND date = ?");
+        $deleteStmt->bind_param("is", $doctor_id, $date);
+        $deleteStmt->execute();
+
+        // Insert new schedule slots
+        $insertStmt = $conn->prepare("INSERT INTO doctor_schedule (doctor_id, date, time_slot) VALUES (?, ?, ?)");
+        foreach ($slots as $slot) {
+            $insertStmt->bind_param("iss", $doctor_id, $date, $slot);
+            $insertStmt->execute();
+        }
+
+        $conn->commit();
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        $conn->rollback();
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to save schedule']);
+    }
+
+    $deleteStmt->close();
+    $insertStmt->close();
+    $conn->close();
+}
+
+// Get reviews
+function getReviews($limit = 10, $conn) {
+    $stmt = $conn->prepare("SELECT patient_name, rating, comment, date as created_at 
+                            FROM patient_reviews 
+                            ORDER BY date DESC 
+                            LIMIT ?");
+    $stmt->bind_param("i", $limit);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+// API endpoint for reviews
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['reviews'])) {
+    $reviews = getReviews(10, $conn);
+    echo json_encode($reviews);
+    exit();
 }
 
 $conn->close();
