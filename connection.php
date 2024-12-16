@@ -5,7 +5,7 @@ session_start();
 $servername = "localhost";
 $username = "root";
 $password = "";
-$dbname = "login_register";
+$dbname = "_Mindsoothe";
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
@@ -114,60 +114,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section']) && isset($
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
 
-    if (!isset($data['date']) || !isset($data['slots']) || !is_array($data['slots'])) {
+    // Validate input
+    if (!isset($data['dates']) || !is_array($data['dates']) || 
+        !isset($data['slots']) || !is_array($data['slots'])) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid input']);
         exit();
     }
 
-    $date = $data['date'];
+    $dates = $data['dates'];
     $slots = $data['slots'];
 
     $conn->begin_transaction();
 
     try {
-        // Delete existing schedule for the selected date
-        $deleteStmt = $conn->prepare("DELETE FROM doctor_schedule WHERE doctor_id = ? AND date = ?");
-        $deleteStmt->bind_param("is", $doctor_id, $date);
-        $deleteStmt->execute();
+        // Prepare statements outside the loops for efficiency
+        $deleteStmt = $conn->prepare("DELETE FROM doctor_sched WHERE doctor_id = ? AND date = ?");
+        $insertStmt = $conn->prepare("INSERT INTO doctor_sched (doctor_id, date, time_slot) VALUES (?, ?, ?)");
 
-        // Insert new schedule slots
-        $insertStmt = $conn->prepare("INSERT INTO doctor_schedule (doctor_id, date, time_slot) VALUES (?, ?, ?)");
-        foreach ($slots as $slot) {
-            $insertStmt->bind_param("iss", $doctor_id, $date, $slot);
-            $insertStmt->execute();
+        // Loop through each selected date
+        foreach ($dates as $date) {
+            // Validate date format
+            if (!strtotime($date)) {
+                throw new Exception("Invalid date format");
+            }
+
+            // Delete existing schedule for the specific date
+            $deleteStmt->bind_param("is", $doctor_id, $date);
+            $deleteStmt->execute();
+
+            // Insert new schedule slots for this date
+            foreach ($slots as $slot) {
+                $insertStmt->bind_param("iss", $doctor_id, $date, $slot);
+                $insertStmt->execute();
+            }
         }
 
         $conn->commit();
-        echo json_encode(['success' => true]);
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Schedule saved for ' . count($dates) . ' date(s)'
+        ]);
     } catch (Exception $e) {
         $conn->rollback();
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to save schedule']);
+        echo json_encode([
+            'success' => false, 
+            'error' => 'Failed to save schedule: ' . $e->getMessage()
+        ]);
+    } finally {
+        // Close prepared statements
+        if (isset($deleteStmt)) $deleteStmt->close();
+        if (isset($insertStmt)) $insertStmt->close();
     }
 
-    $deleteStmt->close();
-    $insertStmt->close();
     $conn->close();
-}
-
-// Get reviews
-function getReviews($limit = 10, $conn) {
-    $stmt = $conn->prepare("SELECT patient_name, rating, comment, date as created_at 
-                            FROM patient_reviews 
-                            ORDER BY date DESC 
-                            LIMIT ?");
-    $stmt->bind_param("i", $limit);
-    $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-}
-
-// API endpoint for reviews
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['reviews'])) {
-    $reviews = getReviews(10, $conn);
-    echo json_encode($reviews);
     exit();
 }
-
-$conn->close();
-?>

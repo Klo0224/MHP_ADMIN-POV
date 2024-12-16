@@ -9,12 +9,12 @@ create table doctors (
  specialization VARCHAR(255) NOT NULL,
  experience INT NOT NULL,
 license_front VARCHAR(255) NOT NULL,
-    license_back VARCHAR(255) NOT NULL,
-    qualifications text not null,
-    education text not null,
- password VARCHAR(255),  -- To store the hashed password
-    status ENUM('pending', 'approved', 'declined') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+license_back VARCHAR(255) NOT NULL,
+qualifications text not null,
+education text not null,
+password VARCHAR(255),  -- To store the hashed password
+status ENUM('pending', 'approved', 'declined') DEFAULT 'pending',
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );	
 CREATE TABLE patients (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -37,6 +37,15 @@ CREATE TABLE appointments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+CREATE TABLE doctor_schedule (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    doctor_id INT NOT NULL,
+    date DATE NOT NULL,
+    time_slot VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_schedule (doctor_id, date, time_slot)
 );
  
 

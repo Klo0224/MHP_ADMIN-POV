@@ -5,7 +5,7 @@ session_start();
 $servername = "localhost";
 $username = "root";
 $password = "";
-$dbname = "login_register";
+$dbname = "_Mindsoothe";
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {

@@ -1,17 +1,16 @@
-  <?php
+<?php
   session_start();
 
   // Database connection
   $servername = "localhost";
   $username = "root";
   $password = "";
-  $dbname = "login_register";
+  $dbname = "_Mindsoothe";
 
   $conn = new mysqli($servername, $username, $password, $dbname);
   if ($conn->connect_error) {
       die("Connection failed: " . $conn->connect_error);
   }
-
   $message = '';
 
   // Registration process
@@ -503,45 +502,44 @@
   </head>
   <body>
     <div class="container" id="container">
-    <div class="form-container sign-up-container">
+      <div class="form-container sign-up-container">
         <form method="post" enctype="multipart/form-data">
           <h1>Create Account</h1>
-          <div class="social-container">
-          </div>
+          <div class="social-container"></div>
           <input type="fname" name="fname" placeholder="First Name" required>
           <input type="lname" name="lname" placeholder="Last Name" required/>
           <input type="email" name="email" placeholder="Email" required/>
           <select name="specialization" required>
-    <option value="">Select Specialization</option>
-    <option value="Psychiatrist">Psychiatrist</option>
-    <option value="Psychologist">Psychologist</option>
-    <option value="Clinical Psychologist">General practitioner</option>
-    <option value="Counseling Psychologist">Counselor</option>
-    <option value="Neuropsychologist">psychotherapy</option>
-</select>
+          <option value="">Select Specialization</option>
+          <option value="Psychiatrist">Psychiatrist</option>
+          <option value="Psychologist">Psychologist</option>
+          <option value="Clinical Psychologist">General practitioner</option>
+          <option value="Counseling Psychologist">Counselor</option>
+          <option value="Neuropsychologist">psychotherapy</option>
+          </select>
           <input type="number" name="experience" placeholder="Years of Experience"  min="0" required/>
           <div class="license-upload-container">
-    <input type="text" 
+           <input type="text" 
            id="license_upload_trigger" 
            class="license-upload-input" 
            readonly 
            value="Upload License" 
            onclick="openLicenseModal()" />
     
-    <!-- Hidden file inputs -->
-    <input type="file" 
+          <!-- Hidden file inputs -->
+          <input type="file" 
            name="license_front" 
            id="license_front" 
            style="display: none;" 
            accept=".jpg,.jpeg,.png,.gif" 
            required/>
-    <input type="file" 
+          <input type="file" 
            name="license_back" 
            id="license_back" 
            style="display: none;" 
            accept=".jpg,.jpeg,.png,.gif" 
            required/>
-</div>
+          </div>
           <input type="password" name="password" placeholder="Password" required />
           <input type="password" name="confirm_password" placeholder="Confirm Password" required />
           <button type="submit" name="signUp">Sign Up</button>
@@ -583,9 +581,9 @@
         <h2 class="modal-title">Medical License Upload</h2>
         <p class="modal-description">
             To ensure the highest quality of care and maintain trust in our platform, 
-            we require all medical professionals to verify their credentials. Please 
+            we require all professionals to verify their credentials. Please 
             provide clear, readable images of both the front and back of your current 
-            medical license. This information will be securely stored and reviewed by 
+            license. This information will be securely stored and reviewed by 
             our verification team.
         </p>
         <div class="license-upload-container">
